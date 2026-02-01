@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Aqua Chaos - Side View Edition</title>
+    <style>
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body {
+            margin: 0; padding: 0; background-color: #0a0a0a;
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; font-family: 'Arial Black', sans-serif;
+            overflow: hidden;
+        }
+
+        #console {
+            position: relative;
+            width: 95vw; max-width: 500px;
+            background-color: #f1f500; /* Parlak Sarı */
+            padding: 20px;
+            border-radius: 40px 40px 100px 100px;
+            box-shadow: 0 30px 0 #8a8d00, 0 40px 60px rgba(0,0,0,0.7);
+            display: flex; flex-direction: column; align-items: center;
+        }
+
+        #screen-area {
+            position: relative;
+            width: 100%; height: 400px;
+            background: #111;
+            border: 12px solid #333;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block; width: 100%; height: 100%;
+            background: linear-gradient(180deg, #3494E6 0%, #EC6EAD 100%); /* Gradyan su */
+        }
+
+        #ui-layer {
+            position: absolute; top: 10px; width: 100%;
+            display: flex; justify-content: space-around;
+            color: #fff; text-shadow: 2px 2px #000; pointer-events: none;
+        }
+
+        #controls {
+            display: flex; justify-content: space-between;
+            width: 100%; padding: 25px 10px;
+        }
+
+        .pump-btn {
+            width: 85px; height: 85px;
+            background: radial-gradient(circle at 30% 30%, #00a2ff, #003366);
+            border-radius: 50%;
+            border: 6px solid #001a33;
+            cursor: pointer;
+            box-shadow: 0 8px 0 #001122;
+        }
+
+        .pump-btn:active { transform: translateY(4px); box-shadow: 0 4px 0 #001122; }
+
+        #reset-trigger {
+            background: #ff0044; color: white; border: none;
+            padding: 10px 20px; border-radius: 10px; font-weight: bold;
+            cursor: pointer; align-self: center; margin-top: -10px;
+            box-shadow: 0 4px 0 #800022;
+        }
+
+        #start-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); z-index: 10;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            color: white; text-align: center;
+        }
+
+        .level-btn {
+            background: #f1f500; color: #000; border: none;
+            padding: 15px 40px; margin: 10px; border-radius: 30px;
+            font-weight: bold; font-size: 1.2rem; cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<div id="console">
+    <div id="screen-area">
+        <div id="ui-layer">
+            <div>SKOR: <span id="score">0</span></div>
+            <div style="font-size: 10px; opacity: 0.7;">KAOS MOTORU v2.0</div>
+        </div>
+        
+        <div id="start-overlay">
+            <h1>AQUA VLOG</h1>
+            <p>Sesi Açmayı Unutmayın!</p>
+            <button class="level-btn" onclick="startApp()">OYUNA BAŞLA</button>
+        </div>
+        
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <div id="controls">
+        <div id="left-pump" class="pump-btn"></div>
+        <button id="reset-trigger" onclick="resetAll()">SIFIRLA</button>
+        <div id="right-pump" class="pump-btn"></div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 400;
+    canvas.height = 550;
+
+    // --- SES SİMÜLASYONU (Web Audio API) ---
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    function playBubbleSound() {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(300 + Math.random() * 500, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 0.15);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+    }
+
+    function playClickSound() {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.05);
+    }
+
+    // --- OYUN MANTIĞI ---
+    let gravity = 0.18; // İniş süresi kısaltıldı (daha ağır)
+    let waterFriction = 0.96;
+    let pushPower = 6.5; // Kaos seviyesi artırıldı
+    let rings = [];
+    let isRunning = false;
+
+    const pegs = [
+        { x: 120, y: 150, w: 12, h: 320, rings: [] },
+        { x: 280, y: 150, w: 12, h: 320, rings: [] }
+    ];
+
+    class Ring {
+        constructor() {
+            this.radius = 14;
+            this.color = `hsl(${Math.random() * 360}, 75%, 55%)`;
+            this.init();
+        }
+        init() {
+            this.x = 40 + Math.random() * 320;
+            this.y = canvas.height - 30;
+            this.vx = (Math.random() - 0.5) * 15;
+            this.vy = (Math.random() - 0.5) * 15;
+            this.onPeg = null; // Hangi çubuğa takılı?
+            this.stackPos = 0; // Çubuktaki kaçıncı halka?
+        }
+
+        update(l, r) {
+            if (this.onPeg !== null) {
+                // Çubuktaki halka fiziği (Yandan görünüm dizilimi)
+                let targetY = canvas.height - 30 - (this.stackPos * 12);
+                this.y += (targetY - this.y) * 0.2;
+                this.x += (pegs[this.onPeg].x + pegs[this.onPeg].w/2 - this.x) * 0.3;
+                this.vx = 0; this.vy = 0;
+                return;
+            }
+
+            // Su Jetleri (Kaos Algoritması)
+            if (l) {
+                let dist = Math.hypot(this.x - 20, this.y - 520);
+                if (dist < 350) {
+                    this.vy -= (pushPower * (350 - dist) / 100) * (Math.random() + 0.5);
+                    this.vx += Math.random() * 8;
+                }
+            }
+            if (r) {
+                let dist = Math.hypot(this.x - 380, this.y - 520);
+                if (dist < 350) {
+                    this.vy -= (pushPower * (350 - dist) / 100) * (Math.random() + 0.5);
+                    this.vx -= Math.random() * 8;
+                }
+            }
+
+            // Fizik ve Türbülans
+            this.vx += (Math.random() - 0.5) * 0.6; // Su dalgalanması
+            this.vy += gravity;
+            this.vx *= waterFriction;
+            this.vy *= waterFriction;
+
+            this.x += this.vx;
+            this.y += this.vy;
+
+            // Sınırlar
+            if (this.x < this.radius) { this.x = this.radius; this.vx *= -0.8; playClickSound(); }
+            if (this.x > canvas.width - this.radius) { this.x = canvas.width - this.radius; this.vx *= -0.8; playClickSound(); }
+            if (this.y < this.radius) { this.y = this.radius; this.vy *= 0.5; }
+            if (this.y > canvas.height - this.radius) { this.y = canvas.height - this.radius; this.vy *= -0.4; }
+
+            // Çubuk Yakalama (Yandan Görünüm Mantığı)
+            pegs.forEach((peg, i) => {
+                let centerX = peg.x + peg.w/2;
+                // Halka çubuğun tepesinden mi geçiyor?
+                if (Math.abs(this.x - centerX) < 10 && this.vy > 0 && this.y > peg.y && this.y < peg.y + 30) {
+                    this.onPeg = i;
+                    this.stackPos = peg.rings.length;
+                    peg.rings.push(this);
+                    playClickSound();
+                } 
+                // Yanlardan çarpma
+                else if (this.y > peg.y && this.x > peg.x - 5 && this.x < peg.x + peg.w + 5) {
+                    this.vx *= -1.2;
+                    this.x += this.vx;
+                }
+            });
+        }
+
+        draw() {
+            ctx.beginPath();
+            if (this.onPeg !== null) {
+                // Yandan görünüm: Elips şeklinde dizilme
+                ctx.ellipse(this.x, this.y, this.radius + 2, 6, 0, 0, Math.PI * 2);
+            } else {
+                // Su içinde yüzerken: Tam daire
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            }
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = this.color;
+            ctx.stroke();
+            
+            // Parlama efekti
+            ctx.beginPath();
+            ctx.arc(this.x - 4, this.y - 4, 2, 0, Math.PI * 2);
+            ctx.fillStyle = "rgba(255,255,255,0.5)";
+            ctx.fill();
+        }
+    }
+
+    function startApp() {
+        document.getElementById('start-overlay').style.display = 'none';
+        isRunning = true;
+        rings = Array.from({ length: 45 }, () => new Ring());
+        animate();
+    }
+
+    function resetAll() {
+        pegs.forEach(p => p.rings = []);
+        rings.forEach(r => r.init());
+        document.getElementById('score').innerText = "0";
+    }
+
+    // Inputlar
+    let lIn = false, rIn = false;
+    const bind = (id, side) => {
+        const el = document.getElementById(id);
+        const act = (v) => {
+            if(side === 'L') lIn = v; else rIn = v;
+            if(v) playBubbleSound();
+        };
+        el.onmousedown = () => act(true); el.onmouseup = () => act(false);
+        el.ontouchstart = (e) => { e.preventDefault(); act(true); };
+        el.ontouchend = () => act(false);
+    };
+    bind('left-pump', 'L'); bind('right-pump', 'R');
+
+    function animate() {
+        if (!isRunning) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Su Efekti (Arka plan kabarcıkları)
+        ctx.fillStyle = "rgba(255,255,255,0.1)";
+        for(let i=0; i<3; i++) {
+            ctx.beginPath();
+            ctx.arc(Math.random()*400, Math.random()*550, 20, 0, Math.PI*2);
+            ctx.fill();
+        }
+
+        // Çubuklar
+        pegs.forEach(peg => {
+            ctx.fillStyle = "#ff9900";
+            ctx.fillRect(peg.x, peg.y, peg.w, peg.h);
+            ctx.beginPath(); ctx.arc(peg.x + peg.w/2, peg.y, 6, 0, Math.PI*2); ctx.fill();
+        });
+
+        // Halkalar
+        let currentScore = 0;
+        rings.forEach(ring => {
+            ring.update(lIn, rIn);
+            ring.draw();
+            if(ring.onPeg !== null) currentScore++;
+        });
+
+        document.getElementById('score').innerText = currentScore;
+
+        requestAnimationFrame(animate);
+    }
+</script>
+</body>
+</html>
