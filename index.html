@@ -1,9 +1,9 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Aqua Chaos - Chaos Edition</title>
+    <title>Halka Geçirmece</title>
     <style>
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body {
@@ -84,8 +84,8 @@
         </div>
 
         <div id="overlay">
-            <h1 style="margin:0">AQUA CHAOS</h1>
-            <p>Kaos Başlıyor!</p>
+            <h1 style="margin:0">HALKA GEÇİRMECE</h1>
+            <p>Oyun Başlıyor!</p>
             <button class="btn-start" onclick="startGame()">BAŞLA</button>
         </div>
 
@@ -114,7 +114,7 @@
     const GRAVITY = 0.15;
     const FRICTION = 0.97;
     const PEG_WIDTH = 10;
-    const PEG_Y = 180; // Çubuğun başladığı yükseklik (yukarıdan)
+    const PEG_Y = 150; // Çubuğun başladığı yükseklik (yukarıdan)
     const PEGS = [ { x: 120, rings: [] }, { x: 280, rings: [] } ];
 
     function playSound(f, type = 'sine') {
@@ -289,7 +289,7 @@
         document.getElementById('score').innerText = score;
 
         if(score === 25) {
-            alert("KAOS TAMAMLANDI! Süre: " + document.getElementById('timer').innerText + "s");
+            alert("HALKALAR TAMAMLANDI! Süre: " + document.getElementById('timer').innerText + "s");
             isRunning = false;
             clearInterval(timerInterval);
             document.getElementById('overlay').style.display = 'flex';
