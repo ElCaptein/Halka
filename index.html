@@ -86,7 +86,7 @@
     <div id="screen-area">
         <div id="ui-layer">
             <div>SKOR: <span id="score">0</span></div>
-            <div style="font-size: 10px; opacity: 0.7;">Heyye Babba </div>
+            <div style="font-size: 10px; opacity: 0.7;">KAOS MOTORU v2.0</div>
         </div>
         
         <div id="start-overlay">
@@ -139,7 +139,7 @@
     }
 
     // --- OYUN MANTIĞI ---
-    let gravity = 0.1; // İniş süresi kısaltıldı (daha ağır)
+    let gravity = 0.18; // İniş süresi kısaltıldı (daha ağır)
     let waterFriction = 0.96;
     let pushPower = 6.5; // Kaos seviyesi artırıldı
     let rings = [];
@@ -179,14 +179,14 @@
             if (l) {
                 let dist = Math.hypot(this.x - 20, this.y - 520);
                 if (dist < 350) {
-                    this.vy -= (pushPower * (150 - dist) / 100) * (Math.random() + 0.5);
+                    this.vy -= (pushPower * (350 - dist) / 100) * (Math.random() + 0.5);
                     this.vx += Math.random() * 8;
                 }
             }
             if (r) {
                 let dist = Math.hypot(this.x - 380, this.y - 520);
                 if (dist < 350) {
-                    this.vy -= (pushPower * (150 - dist) / 100) * (Math.random() + 0.5);
+                    this.vy -= (pushPower * (350 - dist) / 100) * (Math.random() + 0.5);
                     this.vx -= Math.random() * 8;
                 }
             }
